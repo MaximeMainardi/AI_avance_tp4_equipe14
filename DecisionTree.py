@@ -97,7 +97,12 @@ class DecisionTree:
         left_tree = self._build_tree(X[left_indices], y[left_indices])
         right_tree = self._build_tree(X[right_indices], y[right_indices])
 
-        return {"column": column, "threshold": threshold, "left": left_tree, "right": right_tree}
+        return {
+            "column": column,
+            "threshold": threshold,
+            "left": left_tree,
+            "right": right_tree,
+        }
 
     def _prune_tree(self, tree, X, y, min_samples):
         """
@@ -112,8 +117,12 @@ class DecisionTree:
         if np.sum(left_indices) < min_samples or np.sum(right_indices) < min_samples:
             return np.bincount(y).argmax()
 
-        tree["left"] = self._prune_tree(tree["left"], X[left_indices], y[left_indices], min_samples)
-        tree["right"] = self._prune_tree(tree["right"], X[right_indices], y[right_indices], min_samples)
+        tree["left"] = self._prune_tree(
+            tree["left"], X[left_indices], y[left_indices], min_samples
+        )
+        tree["right"] = self._prune_tree(
+            tree["right"], X[right_indices], y[right_indices], min_samples
+        )
 
         return tree
 
@@ -139,16 +148,17 @@ class DecisionTree:
         else:
             return self._predict_single(x, tree["right"])
 
-    def predict(self, X):
+    def predict(self, x):
         """
         Prédire les classes pour plusieurs exemples.
         """
-        return np.array([self._predict_single(x, self.tree) for x in X])
+        # return np.array([self._predict_single(x, self.tree) for x in X])
+        return self._predict_single(x, self.tree)
 
     def evaluate(self, X, y):
         """
         Évaluer l'arbre de décision sur un ensemble de test.
         """
-        predictions = self.predict(X)
+        predictions = np.array([self.predict(x) for x in X])
         accuracy = np.mean(predictions == y)
         return accuracy

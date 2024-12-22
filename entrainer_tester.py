@@ -1,20 +1,16 @@
 import numpy as np
 import sys
 import load_datasets
+import matplotlib.pyplot as plt
+import time
 
 from sklearn.tree import DecisionTreeClassifier
 
-import NeuralNet  # importer le reseau de neurone
-from DecisionTree import DecisionTree # importer la classe de l'arbre de décision
-#from NaiveBayes import NaiveBayes
-#from Knn import Knn
-
-# importer d'autres fichiers et classes si vous en avez développés
-import time
-
-from sklearn.neural_network import MLPClassifier
-from Knn import Knn
+from NeuralNet import NeuralNet  # importer le reseau de neurone
+from DecisionTree import DecisionTree  # importer la classe de l'arbre de décision
 from NaiveBayes import NaiveBayes
+from Knn import Knn
+from sklearn.neural_network import MLPClassifier
 
 """
 C'est le fichier main duquel nous allons tout lancer
@@ -25,6 +21,7 @@ En gros, vous allez :
 3- Entraîner votre classifieur
 4- Le tester
 """
+
 
 def accuracy(predictions: list, values: list):
     return np.sum(predictions == values) / len(values)
@@ -104,6 +101,37 @@ def kfold_cross_validation(X, y, model_class, model_params, k=5):
     return np.mean(accuracies)
 
 
+# fonction pour obtenir un graph de l'accuracy en fonction du nombre de neurones
+def get_accuracy_vs_neurons(X, y, model_class, model_params, neurons_range):
+    accuracies = []
+    for neurons in neurons_range:
+        model = model_class(hidden_layer_sizes=(neurons,), **model_params)
+        accuracy = kfold_cross_validation(X, y, model_class, model_params)
+        accuracies.append(accuracy)
+    return accuracies
+
+
+def plot_error_vs_neurons(neurons_range, losses, dataset_name):
+    plt.figure(figsize=(10, 6))
+    plt.plot(neurons_range, losses, marker="o")
+    plt.title(f"Error vs number of neurones for {dataset_name}")
+    plt.xlabel("Number of Neurons")
+    plt.ylabel("Error(1-Accuracy)")
+    plt.grid(True)
+    plt.show()
+
+
+def plot_error_vs_depth(depth_range, losses, dataset_name, best_size):
+    plt.figure(figsize=(10, 6))
+    plt.plot(depth_range, losses, marker="o")
+    plt.title(f"Error vs depth for {dataset_name} (neurons per layer: {best_size})")
+    plt.xlabel("Depth")
+    plt.ylabel("Error(1-Accuracy)")
+    plt.grid(True)
+    plt.xticks(depth_range)
+    plt.show()
+
+
 # load datasets
 train_ratio = 0.7
 train_iris, train_labels_iris, test_iris, test_labels_iris = (
@@ -118,9 +146,9 @@ train_abalone, train_labels_abalone, test_abalone, test_labels_abalone = (
 
 # Decision Tree
 
-decision_tree_iris = DecisionTree.DecisionTree()
-decision_tree_wine = DecisionTree.DecisionTree()
-decision_tree_abalones = DecisionTree.DecisionTree()
+decision_tree_iris = DecisionTree()
+decision_tree_wine = DecisionTree()
+decision_tree_abalones = DecisionTree()
 
 print("\n\u001b[31;1mTrain Decision Tree:\u001b[0m")
 print("\u001b[32;1mIris:\u001b[0m")
@@ -144,24 +172,35 @@ time_decision_tree_train_abalones = time.time() - time_decision_tree_train_abalo
 predictions = np.array([decision_tree_abalones.predict(x) for x in train_abalone])
 print_prediction_summary(predictions, train_labels_abalone)
 
-decision_tree_iris_sklearn = DecisionTreeClassifier(criterion='gini', max_depth=3, random_state=15)
-decision_tree_wine_sklearn = DecisionTreeClassifier(criterion='gini', max_depth=3, random_state=15)
-decision_tree_abalones_sklearn = DecisionTreeClassifier(criterion='gini', max_depth=3, random_state=15)
+decision_tree_iris_sklearn = DecisionTreeClassifier(
+    criterion="gini", max_depth=3, random_state=15
+)
+decision_tree_wine_sklearn = DecisionTreeClassifier(
+    criterion="gini", max_depth=3, random_state=15
+)
+decision_tree_abalones_sklearn = DecisionTreeClassifier(
+    criterion="gini", max_depth=3, random_state=15
+)
 
 print("\n\u001b[31;1mTrain Scikit-learn Decision Tree:\u001b[0m")
 print("\u001b[32;1mIris:\u001b[0m")
-decision_tree_iris_sklearn.train(train_iris, train_labels_iris)
-predictions = np.array([decision_tree_iris_sklearn.predict(x) for x in train_iris])
+decision_tree_iris_sklearn.fit(train_iris, train_labels_iris)
+# predictions = np.array([decision_tree_iris_sklearn.predict(x) for x in train_iris])
+predictions = decision_tree_iris_sklearn.predict(train_iris)
 print_prediction_summary(predictions, train_labels_iris)
 
 print("\u001b[32;1mWine:\u001b[0m")
-decision_tree_wine_sklearn.train(train_wine, train_labels_wine)
-predictions = np.array([decision_tree_wine_sklearn.predict(x) for x in train_wine])
+decision_tree_wine_sklearn.fit(train_wine, train_labels_wine)
+# predictions = np.array([decision_tree_wine_sklearn.predict(x) for x in train_wine])
+predictions = decision_tree_wine_sklearn.predict(train_wine)
 print_prediction_summary(predictions, train_labels_wine)
 
 print("\u001b[32;1mAbalones:\u001b[0m")
-decision_tree_abalones_sklearn.train(train_abalone, train_labels_abalone)
-predictions = np.array([decision_tree_abalones_sklearn.predict(x) for x in train_abalone])
+decision_tree_abalones_sklearn.fit(train_abalone, train_labels_abalone)
+# predictions = np.array(
+#     [decision_tree_abalones_sklearn.predict(x) for x in train_abalone]
+# )
+predictions = decision_tree_abalones_sklearn.predict(train_abalone)
 print_prediction_summary(predictions, train_labels_abalone)
 
 # Neural Network
@@ -186,7 +225,9 @@ best_depth_abalones = None
 # optimisation du nombre de neurones pour le dataset iris
 print("\nOptimizing Neural Network:")
 print("\nNeural Network layer size for iris:")
+error_vs_neurons_iris = []
 for hidden_layers in hidden_layers_sizes_to_test:
+
     score = kfold_cross_validation(
         train_iris,
         train_labels_iris,
@@ -199,12 +240,20 @@ for hidden_layers in hidden_layers_sizes_to_test:
             "learning_rate_init": 0.01,
         },
     )
+    error_vs_neurons_iris.append(1 - score)
     if best_size_iris is None or score > best_size_iris[1]:
         best_size_iris = (hidden_layers, score)
     print(f"Hidden layers: {hidden_layers}, Accuracy: {score}")
 
+plot_error_vs_neurons(
+    hidden_layers_sizes_to_test,
+    error_vs_neurons_iris,
+    "Iris",
+)
+
 # optimisation du nombre de neurones pour le dataset wine
 print("\nNeural Network layer size for wine:")
+error_vs_neurons_wine = []
 for hidden_layers in hidden_layers_sizes_to_test:
     score = kfold_cross_validation(
         train_wine,
@@ -218,12 +267,20 @@ for hidden_layers in hidden_layers_sizes_to_test:
             "learning_rate_init": 0.01,
         },
     )
+    error_vs_neurons_wine.append(1 - score)
     if best_size_wine is None or score > best_size_wine[1]:
         best_size_wine = (hidden_layers, score)
     print(f"Hidden layers: {hidden_layers}, Accuracy: {score}")
 
+plot_error_vs_neurons(
+    hidden_layers_sizes_to_test,
+    error_vs_neurons_wine,
+    "Wine",
+)
+
 # optimisation du nombre de neurones pour le dataset abalones
 print("\nNeural Network layer size for abalones:")
+error_vs_neurons_abalones = []
 for hidden_layers in hidden_layers_sizes_to_test:
     score = kfold_cross_validation(
         train_abalone,
@@ -237,9 +294,16 @@ for hidden_layers in hidden_layers_sizes_to_test:
             "learning_rate_init": 0.01,
         },
     )
+    error_vs_neurons_abalones.append(1 - score)
     if best_size_abalones is None or score > best_size_abalones[1]:
         best_size_abalones = (hidden_layers, score)
     print(f"Hidden layers: {hidden_layers}, Accuracy: {score}")
+
+plot_error_vs_neurons(
+    hidden_layers_sizes_to_test,
+    error_vs_neurons_abalones,
+    "Abalones",
+)
 
 print(
     f"\nBest hidden layers for iris: {best_size_iris[0][0]}, Accuracy: {best_size_iris[1]}"
@@ -279,6 +343,7 @@ hidden_layers_to_test_abalones = [
 
 # optimisation de la profondeur pour le dataset iris
 print("\nNeural Network depth for iris:")
+error_vs_depth_iris = []
 for hidden_layers in hidden_layers_to_test_iris:
     score = kfold_cross_validation(
         train_iris,
@@ -292,12 +357,22 @@ for hidden_layers in hidden_layers_to_test_iris:
             "learning_rate_init": 0.01,
         },
     )
+    error_vs_depth_iris.append(1 - score)
     if best_depth_iris is None or score > best_depth_iris[1]:
         best_depth_iris = (hidden_layers, score)
     print(f"Hidden layers: {hidden_layers}, Accuracy: {score}")
 
+plot_error_vs_depth(
+    [len(x) for x in hidden_layers_to_test_iris],
+    error_vs_depth_iris,
+    "Iris",
+    bsi,
+)
+
+
 # optimisation de la profondeur pour le dataset wine
 print("\nNeural Network depth for wine:")
+error_vs_depth_wine = []
 for hidden_layers in hidden_layers_to_test_wine:
     score = kfold_cross_validation(
         train_wine,
@@ -311,12 +386,21 @@ for hidden_layers in hidden_layers_to_test_wine:
             "learning_rate_init": 0.01,
         },
     )
+    error_vs_depth_wine.append(1 - score)
     if best_depth_wine is None or score > best_depth_wine[1]:
         best_depth_wine = (hidden_layers, score)
     print(f"Hidden layers: {hidden_layers}, Accuracy: {score}")
 
+plot_error_vs_depth(
+    [len(x) for x in hidden_layers_to_test_wine],
+    error_vs_depth_wine,
+    "Wine",
+    bsw,
+)
+
 # optimisation de la profondeur pour le dataset abalones
 print("\nNeural Network depth for abalones:")
+error_vs_depth_abalones = []
 for hidden_layers in hidden_layers_to_test_abalones:
     score = kfold_cross_validation(
         train_abalone,
@@ -330,9 +414,17 @@ for hidden_layers in hidden_layers_to_test_abalones:
             "learning_rate_init": 0.01,
         },
     )
+    error_vs_depth_abalones.append(1 - score)
     if best_depth_abalones is None or score > best_depth_abalones[1]:
         best_depth_abalones = (hidden_layers, score)
     print(f"Hidden layers: {hidden_layers}, Accuracy: {score}")
+
+plot_error_vs_depth(
+    [len(x) for x in hidden_layers_to_test_abalones],
+    error_vs_depth_abalones,
+    "Abalones",
+    bsa,
+)
 
 print(
     f"\nBest hidden layers for iris: {best_depth_iris[0]}, Accuracy: {best_depth_iris[1]}"
@@ -344,44 +436,53 @@ print(
     f"Best hidden layers for abalones: {best_depth_abalones[0]}, Accuracy: {best_depth_abalones[1]}"
 )
 
-nn_iris = NeuralNet.NeuralNet(best_depth_iris[0])
-nn_wine = NeuralNet.NeuralNet(best_depth_wine[0])
-nn_abalones = NeuralNet.NeuralNet(best_depth_abalones[0])
+nn_iris_layers = [4, *best_depth_iris[0], 3]
+nn_wine_layers = [11, *best_depth_wine[0], 2]
+nn_abalones_layers = [8, *best_depth_abalones[0], 3]
+nn_iris = NeuralNet(nn_iris_layers, learning_rate=0.1, activation="relu")
+nn_wine = NeuralNet(nn_wine_layers, learning_rate=0.01, activation="relu")
+nn_abalones = NeuralNet(nn_abalones_layers, learning_rate=0.01, activation="relu")
 
 
 print("\n\u001b[31;1mTrain Neural Network:\u001b[0m")
 print("\u001b[32;1mIris:\u001b[0m")
 time_nn_train_iris = time.time()
-nn_iris.train(train_iris, train_labels_iris)
+nn_iris.train(train_iris.T, np.eye(3)[train_labels_iris].T, epochs=1000)
 time_nn_train_iris = time.time() - time_nn_train_iris
-predictions = np.array([nn_iris.predict(x) for x in train_iris])
+# predictions = np.array([nn_iris.predict(x) for x in train_iris])
+predictions = nn_iris.predict(train_iris.T)
 print_prediction_summary(predictions, train_labels_iris)
 
 print("\n\u001b[32;1mWine:\u001b[0m")
 time_nn_train_wine = time.time()
-nn_wine.train(train_wine, train_labels_wine)
+nn_wine.train(train_wine.T, np.eye(2)[train_labels_wine].T, epochs=3000)
 time_nn_train_wine = time.time() - time_nn_train_wine
-predictions = np.array([nn_wine.predict(x) for x in train_wine])
+# predictions = np.array([nn_wine.predict(x) for x in train_wine])
+predictions = nn_wine.predict(train_wine.T)
 print_prediction_summary(predictions, train_labels_wine)
 
 print("\n\u001b[32;1mAbalones:\u001b[0m")
 time_nn_train_abalones = time.time()
-nn_abalones.train(train_abalone, train_labels_abalone)
+nn_abalones.train(train_abalone.T, np.eye(3)[train_labels_abalone].T, epochs=8000)
 time_nn_train_abalones = time.time() - time_nn_train_abalones
-predictions = np.array([nn_abalones.predict(x) for x in train_abalone])
+# predictions = np.array([nn_abalones.predict(x) for x in train_abalone])
+predictions = nn_abalones.predict(train_abalone.T)
 print_prediction_summary(predictions, train_labels_abalone)
 
 print("\n\u001b[31;1mTest Neural Network:\u001b[0m")
 print("\u001b[32;1mIris:\u001b[0m")
-predictions = np.array([nn_iris.predict(x) for x in test_iris])
+# predictions = np.array([nn_iris.predict(x) for x in test_iris])
+predictions = nn_iris.predict(test_iris.T)
 print_prediction_summary(predictions, test_labels_iris)
 
 print("\n\u001b[32;1mWine:\u001b[0m")
-predictions = np.array([nn_wine.predict(x) for x in test_wine])
+# predictions = np.array([nn_wine.predict(x) for x in test_wine])
+predictions = nn_wine.predict(test_wine.T)
 print_prediction_summary(predictions, test_labels_wine)
 
 print("\n\u001b[32;1mAbalones:\u001b[0m")
-predictions = np.array([nn_abalones.predict(x) for x in test_abalone])
+# predictions = np.array([nn_abalones.predict(x) for x in test_abalone])
+predictions = nn_abalones.predict(test_abalone.T)
 print_prediction_summary(predictions, test_labels_abalone)
 
 
@@ -482,22 +583,84 @@ accuracy_decision_tree_wine = decision_tree_wine.evaluate(test_wine, test_labels
 time_decision_tree_predict_abalones = time.time()
 decision_tree_abalones_pred = decision_tree_abalones.predict(test_abalone[5])
 time_decision_tree_predict_abalones = time.time() - time_decision_tree_predict_abalones
-accuracy_decision_tree_abalones = decision_tree_abalones.evaluate(test_abalone, test_labels_abalone)
+accuracy_decision_tree_abalones = decision_tree_abalones.evaluate(
+    test_abalone, test_labels_abalone
+)
 
 # time predict neural network iris
 time_nn_predict_iris = time.time()
 nn_iris_pred = nn_iris.predict(test_iris[5])
 time_nn_predict_iris = time.time() - time_nn_predict_iris
-accuracy_nn_iris = nn_iris.evaluate(test_iris, test_labels_iris)
+accuracy_nn_iris = nn_iris.evaluate(test_iris.T, np.eye(3)[test_labels_iris].T)
 
 # time predict neural network wine
 time_nn_predict_wine = time.time()
 nn_wine_pred = nn_wine.predict(test_wine[5])
 time_nn_predict_wine = time.time() - time_nn_predict_wine
-accuracy_nn_wine = nn_wine.evaluate(test_wine, test_labels_wine)
+accuracy_nn_wine = nn_wine.evaluate(test_wine.T, np.eye(2)[test_labels_wine].T)
 
 # time predict neural network abalones
 time_nn_predict_abalones = time.time()
 nn_abalones_pred = nn_abalones.predict(test_abalone[5])
 time_nn_predict_abalones = time.time() - time_nn_predict_abalones
-accuracy_nn_abalones = nn_abalones.evaluate(test_abalone, test_labels_abalone)
+accuracy_nn_abalones = nn_abalones.evaluate(
+    test_abalone.T, np.eye(3)[test_labels_abalone].T
+)
+
+print("\n\u001b[31;1mComparison of the 4 models:\u001b[0m")
+print("\n\u001b[32;1mIris:\u001b[0m")
+print("\n\u001b[33;1mTraining time:\u001b[0m")
+print(f"\tKnn: {time_knn_train_iris}")
+print(f"\tNaive Bayes: {time_naive_bayes_train_iris}")
+print(f"\tDecision Tree: {time_decision_tree_train_iris}")
+print(f"\tNeural Network: {time_nn_train_iris}")
+
+print("\n\u001b[33;1mPrediction time:\u001b[0m")
+print(f"\tKnn: {time_knn_predict_iris}")
+print(f"\tNaive Bayes: {time_naive_bayes_predict_iris}")
+print(f"\tDecision Tree: {time_decision_tree_predict_iris}")
+print(f"\tNeural Network: {time_nn_predict_iris}")
+
+print("\n\u001b[33;1mAccuracy:\u001b[0m")
+print(f"\tKnn: {accuracy_knn_iris}")
+print(f"\tNaive Bayes: {accuracy_naive_bayes_iris}")
+print(f"\tDecision Tree: {accuracy_decision_tree_iris}")
+print(f"\tNeural Network: {accuracy_nn_iris}")
+
+print("\n\u001b[32;1mWine:\u001b[0m")
+print("\n\u001b[33;1mTraining time:\u001b[0m")
+print(f"\tKnn: {time_knn_train_wine}")
+print(f"\tNaive Bayes: {time_naive_bayes_train_wine}")
+print(f"\tDecision Tree: {time_decision_tree_train_wine}")
+print(f"\tNeural Network: {time_nn_train_wine}")
+
+print("\n\u001b[33;1mPrediction time:\u001b[0m")
+print(f"\tKnn: {time_knn_predict_wine}")
+print(f"\tNaive Bayes: {time_naive_bayes_predict_wine}")
+print(f"\tDecision Tree: {time_decision_tree_predict_wine}")
+print(f"\tNeural Network: {time_nn_predict_wine}")
+
+print("\n\u001b[33;1mAccuracy:\u001b[0m")
+print(f"\tKnn: {accuracy_knn_wine}")
+print(f"\tNaive Bayes: {accuracy_naive_bayes_wine}")
+print(f"\tDecision Tree: {accuracy_decision_tree_wine}")
+print(f"\tNeural Network: {accuracy_nn_wine}")
+
+print("\n\u001b[32;1mAbalones:\u001b[0m")
+print("\n\u001b[33;1mTraining time:\u001b[0m")
+print(f"\tKnn: {time_knn_train_abalones}")
+print(f"\tNaive Bayes: {time_naive_bayes_train_abalones}")
+print(f"\tDecision Tree: {time_decision_tree_train_abalones}")
+print(f"\tNeural Network: {time_nn_train_abalones}")
+
+print("\n\u001b[33;1mPrediction time:\u001b[0m")
+print(f"\tKnn: {time_knn_predict_abalones}")
+print(f"\tNaive Bayes: {time_naive_bayes_predict_abalones}")
+print(f"\tDecision Tree: {time_decision_tree_predict_abalones}")
+print(f"\tNeural Network: {time_nn_predict_abalones}")
+
+print("\n\u001b[33;1mAccuracy:\u001b[0m")
+print(f"\tKnn: {accuracy_knn_abalones}")
+print(f"\tNaive Bayes: {accuracy_naive_bayes_abalones}")
+print(f"\tDecision Tree: {accuracy_decision_tree_abalones}")
+print(f"\tNeural Network: {accuracy_nn_abalones}")
