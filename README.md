@@ -46,8 +46,8 @@ La fonction `kfold_cross_validation` effectue une validation croisée pour séle
 
 ### Répartition des tâches
 
-Pour le code nécessaire au chargement des données, l'entièreté de l'équipe a participé. Pour ce qui est des modèles, ils ont chacun été implémentés par un membre différent de l'équipe.
+ Comme pour le dernier tp, chacun des membres s'est occupé d'implémenter et tester un modèle. 
 
 ### Difficultés rencontrées
 
-l'implémentation du réseau de neurones c'est avéré difficile, en particulier pour les couches cachées. 
+L'implémentation du réseau de neurones s'est avérée difficile, en particulier pour les couches cachées. Nous avons eu plusieurs versions avant d'arriver à des résultats satisfaisants, dans le cas où ils sont valides.  
