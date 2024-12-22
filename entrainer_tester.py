@@ -2,8 +2,12 @@ import numpy as np
 import sys
 import load_datasets
 
-# import DecisionTree  # importer la classe de l'arbre de décision
-import NeuralNet  # importer la classe du Knn
+from sklearn.tree import DecisionTreeClassifier
+
+import NeuralNet  # importer le reseau de neurone
+from DecisionTree import DecisionTree # importer la classe de l'arbre de décision
+#from NaiveBayes import NaiveBayes
+#from Knn import Knn
 
 # importer d'autres fichiers et classes si vous en avez développés
 import time
@@ -21,7 +25,6 @@ En gros, vous allez :
 3- Entraîner votre classifieur
 4- Le tester
 """
-
 
 def accuracy(predictions: list, values: list):
     return np.sum(predictions == values) / len(values)
@@ -115,32 +118,51 @@ train_abalone, train_labels_abalone, test_abalone, test_labels_abalone = (
 
 # Decision Tree
 
-# decision_tree_iris = DecisionTree.DecisionTree()
-# decision_tree_wine = DecisionTree.DecisionTree()
-# decision_tree_abalones = DecisionTree.DecisionTree()
+decision_tree_iris = DecisionTree.DecisionTree()
+decision_tree_wine = DecisionTree.DecisionTree()
+decision_tree_abalones = DecisionTree.DecisionTree()
 
 print("\n\u001b[31;1mTrain Decision Tree:\u001b[0m")
 print("\u001b[32;1mIris:\u001b[0m")
 time_decision_tree_train_iris = time.time()
-# decision_tree_iris.train(train_iris, train_labels_iris)
+decision_tree_iris.train(train_iris, train_labels_iris)
 time_decision_tree_train_iris = time.time() - time_decision_tree_train_iris
-# predictions = np.array([decision_tree_iris.predict(x) for x in train_iris])
-# print_prediction_summary(predictions, train_labels_iris)
+predictions = np.array([decision_tree_iris.predict(x) for x in train_iris])
+print_prediction_summary(predictions, train_labels_iris)
 
 print("\u001b[32;1mWine:\u001b[0m")
 time_decision_tree_train_wine = time.time()
-# decision_tree_wine.train(train_wine, train_labels_wine)
+decision_tree_wine.train(train_wine, train_labels_wine)
 time_decision_tree_train_wine = time.time() - time_decision_tree_train_wine
-# predictions = np.array([decision_tree_wine.predict(x) for x in train_wine])
-# print_prediction_summary(predictions, train_labels_wine)
+predictions = np.array([decision_tree_wine.predict(x) for x in train_wine])
+print_prediction_summary(predictions, train_labels_wine)
 
 print("\u001b[32;1mAbalones:\u001b[0m")
 time_decision_tree_train_abalones = time.time()
-# decision_tree_abalones.train(train_abalone, train_labels_abalone)
+decision_tree_abalones.train(train_abalone, train_labels_abalone)
 time_decision_tree_train_abalones = time.time() - time_decision_tree_train_abalones
-# predictions = np.array([decision_tree_abalones.predict(x) for x in train_abalone])
-# print_prediction_summary(predictions, train_labels_abalone)
+predictions = np.array([decision_tree_abalones.predict(x) for x in train_abalone])
+print_prediction_summary(predictions, train_labels_abalone)
 
+decision_tree_iris_sklearn = DecisionTreeClassifier(criterion='gini', max_depth=3, random_state=15)
+decision_tree_wine_sklearn = DecisionTreeClassifier(criterion='gini', max_depth=3, random_state=15)
+decision_tree_abalones_sklearn = DecisionTreeClassifier(criterion='gini', max_depth=3, random_state=15)
+
+print("\n\u001b[31;1mTrain Scikit-learn Decision Tree:\u001b[0m")
+print("\u001b[32;1mIris:\u001b[0m")
+decision_tree_iris_sklearn.train(train_iris, train_labels_iris)
+predictions = np.array([decision_tree_iris_sklearn.predict(x) for x in train_iris])
+print_prediction_summary(predictions, train_labels_iris)
+
+print("\u001b[32;1mWine:\u001b[0m")
+decision_tree_wine_sklearn.train(train_wine, train_labels_wine)
+predictions = np.array([decision_tree_wine_sklearn.predict(x) for x in train_wine])
+print_prediction_summary(predictions, train_labels_wine)
+
+print("\u001b[32;1mAbalones:\u001b[0m")
+decision_tree_abalones_sklearn.train(train_abalone, train_labels_abalone)
+predictions = np.array([decision_tree_abalones_sklearn.predict(x) for x in train_abalone])
+print_prediction_summary(predictions, train_labels_abalone)
 
 # Neural Network
 hidden_layers_sizes_to_test = [
@@ -446,21 +468,21 @@ accuracy_naive_bayes_abalones = naive_bayes_abalones.evaluate(
 
 # time predict decision tree iris
 time_decision_tree_predict_iris = time.time()
-# decision_tree_iris_pred = decision_tree_iris.predict(test_iris[5])
+decision_tree_iris_pred = decision_tree_iris.predict(test_iris[5])
 time_decision_tree_predict_iris = time.time() - time_decision_tree_predict_iris
-# accuracy_decision_tree_iris = decision_tree_iris.evaluate(test_iris, test_labels_iris)
+accuracy_decision_tree_iris = decision_tree_iris.evaluate(test_iris, test_labels_iris)
 
 # time predict decision tree wine
 time_decision_tree_predict_wine = time.time()
-# decision_tree_wine_pred = decision_tree_wine.predict(test_wine[5])
+decision_tree_wine_pred = decision_tree_wine.predict(test_wine[5])
 time_decision_tree_predict_wine = time.time() - time_decision_tree_predict_wine
-# accuracy_decision_tree_wine = decision_tree_wine.evaluate(test_wine, test_labels_wine)
+accuracy_decision_tree_wine = decision_tree_wine.evaluate(test_wine, test_labels_wine)
 
 # time predict decision tree abalones
 time_decision_tree_predict_abalones = time.time()
-# decision_tree_abalones_pred = decision_tree_abalones.predict(test_abalone[5])
+decision_tree_abalones_pred = decision_tree_abalones.predict(test_abalone[5])
 time_decision_tree_predict_abalones = time.time() - time_decision_tree_predict_abalones
-# accuracy_decision_tree_abalones = decision_tree_abalones.evaluate(test_abalone, test_labels_abalone)
+accuracy_decision_tree_abalones = decision_tree_abalones.evaluate(test_abalone, test_labels_abalone)
 
 # time predict neural network iris
 time_nn_predict_iris = time.time()
