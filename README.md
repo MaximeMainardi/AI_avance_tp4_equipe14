@@ -50,4 +50,5 @@ La fonction `kfold_cross_validation` effectue une validation croisée pour séle
 
 ### Difficultés rencontrées
 
-L'implémentation du réseau de neurones s'est avérée difficile, en particulier pour les couches cachées. Nous avons eu plusieurs versions avant d'arriver à des résultats satisfaisants, dans le cas où ils sont valides.  
+L'implémentation du réseau de neurones s'est avérée difficile, en particulier pour les couches cachées. Nous avons eu plusieurs versions avant d'arriver à des résultats satisfaisants, dans le cas où ils sont valides.
+La validation croisé est effectué sur le modèle mlp de sklearn et selon les hyperparamêtres qu'on obtient notre réseau de neurones a parfois de la difficulté à bien performer.  
