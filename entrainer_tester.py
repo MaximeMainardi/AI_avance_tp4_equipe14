@@ -3,15 +3,19 @@ import sys
 import load_datasets
 import matplotlib.pyplot as plt
 import time
+import os
 
 from sklearn.tree import DecisionTreeClassifier
-
-from NeuralNet import NeuralNet  # importer le reseau de neurone
-from DecisionTree import DecisionTree  # importer la classe de l'arbre de décision
-from NaiveBayes import NaiveBayes
-from Knn import Knn
 from sklearn.neural_network import MLPClassifier
 
+from NeuralNet import NeuralNet  # importer le reseau de neurone
+from DecisionTree import DecisionTree, DecisionTree_Pruning  # importer la classe de l'arbre de décision
+from NaiveBayes import NaiveBayes
+from Knn import Knn
+
+
+from sklearn.model_selection import learning_curve
+from sklearn.metrics import accuracy_score
 """
 C'est le fichier main duquel nous allons tout lancer
 Vous allez dire en commentaire c'est quoi les paramètres que vous avez utilisés
@@ -21,7 +25,7 @@ En gros, vous allez :
 3- Entraîner votre classifieur
 4- Le tester
 """
-
+output_dir=r"C:\Users\User\Documents\AI_avance_tp4_equipe14"
 
 def accuracy(predictions: list, values: list):
     return np.sum(predictions == values) / len(values)
@@ -118,7 +122,14 @@ def plot_error_vs_neurons(neurons_range, losses, dataset_name):
     plt.xlabel("Number of Neurons")
     plt.ylabel("Error(1-Accuracy)")
     plt.grid(True)
-    plt.show()
+    title = dataset_name + " " + str(neurons_range)
+    # Save the plot
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    plot_path = os.path.join(output_dir, f"{title.replace(' ', '_').lower()}.png")
+    plt.savefig(plot_path)
+    plt.close()  # Close the plot to free memory
+    print(f"Plot saved at: {plot_path}")
 
 
 def plot_error_vs_depth(depth_range, losses, dataset_name, best_size):
@@ -129,8 +140,78 @@ def plot_error_vs_depth(depth_range, losses, dataset_name, best_size):
     plt.ylabel("Error(1-Accuracy)")
     plt.grid(True)
     plt.xticks(depth_range)
-    plt.show()
+    title = dataset_name + " " + str(depth_range)
+    # Save the plot
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    plot_path = os.path.join(output_dir, f"{title.replace(' ', '_').lower()}.png")
+    plt.savefig(plot_path)
+    plt.close()  # Close the plot to free memory
+    print(f"Plot saved at: {plot_path}")
 
+def custom_learning_curve(estimator, X, y, title="Learning Curve", cv=5):
+    """
+    Custom learning curve function for non-Scikit-learn estimators.
+    """
+    n_samples = X.shape[0]
+    train_sizes = np.linspace(0.1, 1.0, 20, endpoint=True).astype(float) * n_samples
+    train_sizes = train_sizes.astype(int)
+
+    train_errors = []
+    test_errors = []
+
+    # Split data into k folds for cross-validation
+    indices = np.arange(n_samples)
+    np.random.shuffle(indices)
+    fold_size = n_samples // cv
+    folds = [indices[i * fold_size:(i + 1) * fold_size] for i in range(cv)]
+
+    for train_size in train_sizes:
+        fold_train_errors = []
+        fold_test_errors = []
+
+        for fold_idx in range(cv):
+            # Create train-test split for this fold
+            test_indices = folds[fold_idx]
+            train_indices = np.setdiff1d(indices, test_indices)[:train_size]
+
+            X_train, y_train = X[train_indices], y[train_indices]
+            X_test, y_test = X[test_indices], y[test_indices]
+
+            # Train the model
+            estimator.train(X_train, y_train)
+
+            # Compute errors
+            train_predictions = estimator.predict(X_train)
+            test_predictions = estimator.predict(X_test)
+
+            train_error = 1 - np.mean(train_predictions == y_train)
+            test_error = 1 - np.mean(test_predictions == y_test)
+
+            fold_train_errors.append(train_error)
+            fold_test_errors.append(test_error)
+
+        # Average error across folds
+        train_errors.append(np.mean(fold_train_errors))
+        test_errors.append(np.mean(fold_test_errors))
+
+    # Plot the learning curve (error rates)
+    plt.figure(figsize=(10, 6))
+    plt.plot(train_sizes, train_errors, label="Training Error", color="red")
+    plt.plot(train_sizes, test_errors, label="Validation Error", color="blue")
+    plt.title(title)
+    plt.xlabel("Training Set Size")
+    plt.ylabel("Error Rate")
+    plt.legend(loc="best")
+    plt.grid()
+
+    # Save the plot
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    plot_path = os.path.join(output_dir, f"{title.replace(' ', '_').lower()}.png")
+    plt.savefig(plot_path)
+    plt.close()  # Close the plot to free memory
+    print(f"Plot saved at: {plot_path}")
 
 # load datasets
 train_ratio = 0.7
@@ -146,9 +227,9 @@ train_abalone, train_labels_abalone, test_abalone, test_labels_abalone = (
 
 # Decision Tree
 
-decision_tree_iris = DecisionTree()
-decision_tree_wine = DecisionTree()
-decision_tree_abalones = DecisionTree()
+decision_tree_iris = DecisionTree(max_depth=3,min_samples_split=2)
+decision_tree_wine = DecisionTree(max_depth=5,min_samples_split=5)
+decision_tree_abalones = DecisionTree(max_depth=10,min_samples_split=20)
 
 print("\n\u001b[31;1mTrain Decision Tree:\u001b[0m")
 print("\u001b[32;1mIris:\u001b[0m")
@@ -157,6 +238,7 @@ decision_tree_iris.train(train_iris, train_labels_iris)
 time_decision_tree_train_iris = time.time() - time_decision_tree_train_iris
 predictions = np.array([decision_tree_iris.predict(x) for x in train_iris])
 print_prediction_summary(predictions, train_labels_iris)
+custom_learning_curve(decision_tree_iris, train_iris, train_labels_iris, title="Learning Curve Decision Tree (Iris)")
 
 print("\u001b[32;1mWine:\u001b[0m")
 time_decision_tree_train_wine = time.time()
@@ -164,6 +246,7 @@ decision_tree_wine.train(train_wine, train_labels_wine)
 time_decision_tree_train_wine = time.time() - time_decision_tree_train_wine
 predictions = np.array([decision_tree_wine.predict(x) for x in train_wine])
 print_prediction_summary(predictions, train_labels_wine)
+custom_learning_curve(decision_tree_wine,train_wine, train_labels_wine, title="Learning Curve Decision Tree (Wine)")
 
 print("\u001b[32;1mAbalones:\u001b[0m")
 time_decision_tree_train_abalones = time.time()
@@ -171,15 +254,16 @@ decision_tree_abalones.train(train_abalone, train_labels_abalone)
 time_decision_tree_train_abalones = time.time() - time_decision_tree_train_abalones
 predictions = np.array([decision_tree_abalones.predict(x) for x in train_abalone])
 print_prediction_summary(predictions, train_labels_abalone)
+custom_learning_curve(decision_tree_abalones,train_abalone, train_labels_abalone, title="Learning Curve Decision Tree (Abalone)")
 
 decision_tree_iris_sklearn = DecisionTreeClassifier(
-    criterion="gini", max_depth=3, random_state=15
+    criterion="gini", max_depth=3,min_samples_split=2, random_state=15
 )
 decision_tree_wine_sklearn = DecisionTreeClassifier(
-    criterion="gini", max_depth=3, random_state=15
+    criterion="gini", max_depth=5,min_samples_split=5, random_state=15
 )
 decision_tree_abalones_sklearn = DecisionTreeClassifier(
-    criterion="gini", max_depth=3, random_state=15
+    criterion="gini", max_depth=10,min_samples_split=20, random_state=15
 )
 
 print("\n\u001b[31;1mTrain Scikit-learn Decision Tree:\u001b[0m")
@@ -202,6 +286,83 @@ decision_tree_abalones_sklearn.fit(train_abalone, train_labels_abalone)
 # )
 predictions = decision_tree_abalones_sklearn.predict(train_abalone)
 print_prediction_summary(predictions, train_labels_abalone)
+
+decision_tree_iris_pruning = DecisionTree_Pruning(max_depth=3,min_samples_split=2)
+decision_tree_wine_pruning = DecisionTree_Pruning(max_depth=5,min_samples_split=5)
+decision_tree_abalones_pruning = DecisionTree_Pruning(max_depth=10,min_samples_split=20)
+
+print("\n\u001b[31;1mTrain Decision Tree with Pruning:\u001b[0m")
+print("\u001b[32;1mIris:\u001b[0m")
+time_decision_tree_train_iris = time.time()
+decision_tree_iris_pruning.train(train_iris, train_labels_iris)
+time_decision_tree_train_iris = time.time() - time_decision_tree_train_iris
+predictions = np.array([decision_tree_iris_pruning.predict(x) for x in train_iris])
+print_prediction_summary(predictions, train_labels_iris)
+custom_learning_curve(decision_tree_iris_pruning,train_iris, train_labels_iris, title="Learning Curve Decision Tree Pruning (Iris)")
+
+print("\u001b[32;1mWine:\u001b[0m")
+time_decision_tree_train_wine = time.time()
+decision_tree_wine_pruning.train(train_wine, train_labels_wine)
+time_decision_tree_train_wine = time.time() - time_decision_tree_train_wine
+predictions = np.array([decision_tree_wine_pruning.predict(x) for x in train_wine])
+print_prediction_summary(predictions, train_labels_wine)
+custom_learning_curve(decision_tree_wine_pruning,train_wine, train_labels_wine, title="Learning Curve Decision Tree Pruning (Wine)")
+
+print("\u001b[32;1mAbalones:\u001b[0m")
+time_decision_tree_train_abalones = time.time()
+decision_tree_abalones_pruning.train(train_abalone, train_labels_abalone)
+time_decision_tree_train_abalones = time.time() - time_decision_tree_train_abalones
+predictions = np.array([decision_tree_abalones_pruning.predict(x) for x in train_abalone])
+print_prediction_summary(predictions, train_labels_abalone)
+custom_learning_curve(decision_tree_abalones_pruning,train_abalone, train_labels_abalone, title="Learning Curve Decision Tree Pruning (Abalone)")
+
+print("\n\u001b[31;1mTest Decision Tree:\u001b[0m")
+print("\u001b[32;1mIris:\u001b[0m")
+# predictions = np.array([nn_iris.predict(x) for x in test_iris])
+predictions = decision_tree_iris.predict(test_iris)
+print_prediction_summary(predictions, test_labels_iris)
+
+print("\n\u001b[32;1mWine:\u001b[0m")
+# predictions = np.array([nn_wine.predict(x) for x in test_wine])
+predictions = decision_tree_wine.predict(test_wine)
+print_prediction_summary(predictions, test_labels_wine)
+
+print("\n\u001b[32;1mAbalones:\u001b[0m")
+# predictions = np.array([nn_abalones.predict(x) for x in test_abalone])
+predictions = decision_tree_abalones.predict(test_abalone)
+print_prediction_summary(predictions, test_labels_abalone)
+
+print("\n\u001b[31;1mTest Decision Tree Scikit-learn:\u001b[0m")
+print("\u001b[32;1mIris:\u001b[0m")
+# predictions = np.array([nn_iris.predict(x) for x in test_iris])
+predictions = decision_tree_iris_sklearn.predict(test_iris)
+print_prediction_summary(predictions, test_labels_iris)
+
+print("\n\u001b[32;1mWine:\u001b[0m")
+# predictions = np.array([nn_wine.predict(x) for x in test_wine])
+predictions =decision_tree_wine_sklearn.predict(test_wine)
+print_prediction_summary(predictions, test_labels_wine)
+
+print("\n\u001b[32;1mAbalones:\u001b[0m")
+# predictions = np.array([nn_abalones.predict(x) for x in test_abalone])
+predictions = decision_tree_abalones_sklearn.predict(test_abalone)
+print_prediction_summary(predictions, test_labels_abalone)
+
+print("\n\u001b[31;1mTest Decision Tree Pruning:\u001b[0m")
+print("\u001b[32;1mIris:\u001b[0m")
+# predictions = np.array([nn_iris.predict(x) for x in test_iris])
+predictions = decision_tree_iris_pruning.predict(test_iris)
+print_prediction_summary(predictions, test_labels_iris)
+
+print("\n\u001b[32;1mWine:\u001b[0m")
+# predictions = np.array([nn_wine.predict(x) for x in test_wine])
+predictions = decision_tree_wine_pruning.predict(test_wine)
+print_prediction_summary(predictions, test_labels_wine)
+
+print("\n\u001b[32;1mAbalones:\u001b[0m")
+# predictions = np.array([nn_abalones.predict(x) for x in test_abalone])
+predictions = decision_tree_abalones_pruning.predict(test_abalone)
+print_prediction_summary(predictions, test_labels_abalone)
 
 # Neural Network
 hidden_layers_sizes_to_test = [

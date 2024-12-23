@@ -66,5 +66,4 @@ class Knn(Classifier):
             p = 3  # You can change the value of p as needed
             return np.sum(np.abs(self.train_data - x) ** p, axis=1) ** (1 / p)
         else:
-            raise ValueError(f"Unsupported distance metric: {
-                             self.distance_metric}")
+            raise ValueError(f"Unsupported distance metric: {self.distance_metric}")

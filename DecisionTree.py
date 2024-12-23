@@ -1,32 +1,19 @@
-"""
-Vous allez definir une classe pour chaque algorithme que vous allez développer,
-votre classe doit contenit au moins les 3 méthodes definies ici bas, 
-	* train 	: pour entrainer le modèle sur l'ensemble d'entrainement.
-	* predict 	: pour prédire la classe d'un exemple donné.
-	* evaluate 		: pour evaluer le classifieur avec les métriques demandées. 
-vous pouvez rajouter d'autres méthodes qui peuvent vous etre utiles, mais la correction
-se fera en utilisant les méthodes train, predict et evaluate de votre code.
-"""
-
 import numpy as np
 
-
-# le nom de votre classe
-# BayesNaif pour le modèle bayesien naif
-# Knn pour le modèle des k plus proches voisins
-
-
 class DecisionTree:
-
-    def __init__(self):
+    def __init__(self, max_depth=None, min_samples_split=2):
         """
-        Initialisation de l'arbre de décision. L'arbre est représenté comme une structure récursive.
+        Initialize the decision tree with optional constraints.
+        - max_depth: Maximum depth of the tree.
+        - min_samples_split: Minimum number of samples required to split.
         """
         self.tree = None
+        self.max_depth = max_depth
+        self.min_samples_split = min_samples_split
 
     def _entropy(self, y):
         """
-        Calcul de l'entropie pour un vecteur de classes.
+        Calculate entropy for a class vector.
         """
         classes, counts = np.unique(y, return_counts=True)
         probabilities = counts / len(y)
@@ -34,7 +21,7 @@ class DecisionTree:
 
     def _information_gain(self, X_column, y, threshold):
         """
-        Calcul du gain d'information pour une division donnée par un seuil.
+        Calculate information gain for a given split.
         """
         left_indices = X_column <= threshold
         right_indices = X_column > threshold
@@ -56,7 +43,7 @@ class DecisionTree:
 
     def _best_split(self, X, y):
         """
-        Trouve le meilleur attribut et le meilleur seuil pour diviser les données.
+        Find the best attribute and threshold for splitting the data.
         """
         best_gain = -1
         best_column = None
@@ -76,66 +63,42 @@ class DecisionTree:
 
         return best_column, best_threshold
 
-    def _build_tree(self, X, y):
+    def _build_tree(self, X, y, depth=0):
         """
-        Construction récursive de l'arbre de décision.
+        Recursively build the decision tree.
         """
-        if len(np.unique(y)) == 1:
+        # Stopping conditions
+        if len(np.unique(y)) == 1:  # Pure leaf
             return np.unique(y)[0]
-
-        if X.shape[1] == 0:
+        if X.shape[0] < self.min_samples_split:  # Minimum samples split
+            return np.bincount(y).argmax()
+        if self.max_depth is not None and depth >= self.max_depth:  # Max depth
             return np.bincount(y).argmax()
 
+        # Best split
         column, threshold = self._best_split(X, y)
-
-        if column is None:
+        if column is None:  # No split possible
             return np.bincount(y).argmax()
 
+        # Split data
         left_indices = X[:, column] <= threshold
         right_indices = X[:, column] > threshold
 
-        left_tree = self._build_tree(X[left_indices], y[left_indices])
-        right_tree = self._build_tree(X[right_indices], y[right_indices])
+        # Recursively build left and right branches
+        left_tree = self._build_tree(X[left_indices], y[left_indices], depth + 1)
+        right_tree = self._build_tree(X[right_indices], y[right_indices], depth + 1)
 
-        return {
-            "column": column,
-            "threshold": threshold,
-            "left": left_tree,
-            "right": right_tree,
-        }
+        return {"column": column, "threshold": threshold, "left": left_tree, "right": right_tree}
 
-    def _prune_tree(self, tree, X, y, min_samples):
+    def train(self, train, train_labels):
         """
-        Élague l'arbre pour éviter le surapprentissage.
-        """
-        if not isinstance(tree, dict):
-            return tree
-
-        left_indices = X[:, tree["column"]] <= tree["threshold"]
-        right_indices = X[:, tree["column"]] > tree["threshold"]
-
-        if np.sum(left_indices) < min_samples or np.sum(right_indices) < min_samples:
-            return np.bincount(y).argmax()
-
-        tree["left"] = self._prune_tree(
-            tree["left"], X[left_indices], y[left_indices], min_samples
-        )
-        tree["right"] = self._prune_tree(
-            tree["right"], X[right_indices], y[right_indices], min_samples
-        )
-
-        return tree
-
-    def train(self, train, train_labels, min_samples=1):
-        """
-        Entraîne l'arbre de décision sur un ensemble d'entraînement avec élague.
+        Train the decision tree on a training set.
         """
         self.tree = self._build_tree(train, train_labels)
-        self.tree = self._prune_tree(self.tree, train, train_labels, min_samples)
 
     def _predict_single(self, x, tree):
         """
-        Prédiction pour un exemple unique à partir de l'arbre.
+        Predict a single instance using the decision tree.
         """
         if not isinstance(tree, dict):
             return tree
@@ -148,17 +111,60 @@ class DecisionTree:
         else:
             return self._predict_single(x, tree["right"])
 
-    def predict(self, x):
+    def predict(self, X):
         """
-        Prédire les classes pour plusieurs exemples.
+        Predict classes for multiple instances.
         """
-        # return np.array([self._predict_single(x, self.tree) for x in X])
-        return self._predict_single(x, self.tree)
+        if X.ndim == 1:  # If a single example is provided, reshape it
+            X = X.reshape(1, -1)
+        return np.array([self._predict_single(x, self.tree) for x in X])
 
     def evaluate(self, X, y):
         """
-        Évaluer l'arbre de décision sur un ensemble de test.
+        Evaluate the decision tree on a test set.
         """
-        predictions = np.array([self.predict(x) for x in X])
+        predictions = self.predict(X)
         accuracy = np.mean(predictions == y)
         return accuracy
+
+
+class DecisionTree_Pruning(DecisionTree):
+    def __init__(self, max_depth=None, min_samples_split=2, min_samples_leaf=1):
+        """
+        Initialize the decision tree with pruning options.
+        - max_depth: Maximum depth of the tree.
+        - min_samples_split: Minimum number of samples required to split.
+        - min_samples_leaf: Minimum number of samples per leaf node.
+        """
+        super().__init__(max_depth, min_samples_split)
+        self.min_samples_leaf = min_samples_leaf
+
+    def _prune_tree(self, tree, X, y):
+        """
+        Prune the tree to avoid overfitting.
+        """
+        if not isinstance(tree, dict):
+            return tree
+
+        left_indices = X[:, tree["column"]] <= tree["threshold"]
+        right_indices = X[:, tree["column"]] > tree["threshold"]
+
+        # Check if leaf pruning is required
+        if (
+            np.sum(left_indices) <= self.min_samples_leaf
+            or np.sum(right_indices) <= self.min_samples_leaf
+        ):
+            return np.bincount(y).argmax()
+
+        # Recursively prune left and right subtrees
+        tree["left"] = self._prune_tree(tree["left"], X[left_indices], y[left_indices])
+        tree["right"] = self._prune_tree(tree["right"], X[right_indices], y[right_indices])
+
+        return tree
+
+    def train(self, train, train_labels):
+        """
+        Train the decision tree with pruning on a training set.
+        """
+        self.tree = self._build_tree(train, train_labels)
+        self.tree = self._prune_tree(self.tree, train, train_labels)
